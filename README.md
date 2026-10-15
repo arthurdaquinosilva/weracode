@@ -20,6 +20,21 @@ Vera's own outlines; no glyphs are taken from other fonts.
 
 All Nerd Font icons are unchanged.
 
+## Ligatures
+
+`->` `-->` `<-` `=>` `<=>` `==` `===` `!=` `!==` `>=` `<=` `::` `...` `&&` `//` `/*` `*/`
+`|>` `<>` `++` `--` `<!--`
+
+- Each ligature takes exactly as many cells as the characters it replaces, so columns and
+  cursor movement are unaffected.
+- Arrows and runs of `=`/`-` are joined; the others keep their characters, drawn closer together.
+- Longer runs of the same character (`====`, `---`, `////`, `:::`) are left alone.
+- `||` is intentionally not a ligature, and `|>` is skipped after another `|`, so htop's `|`
+  meters stay uniform.
+- They are in the `calt` feature: on by default in VS Code (`"editor.fontLigatures": true`),
+  JetBrains IDEs, Kitty, WezTerm and Ghostty; iTerm2 needs *Use ligatures* enabled in the
+  profile's Text settings. Terminals without ligature support show the plain characters.
+
 ## Fonts
 
 `fonts/` contains three families, each in Regular, Bold, Oblique and Bold Oblique:

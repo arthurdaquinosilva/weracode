@@ -11,6 +11,7 @@ For every style and Nerd Font variant in source/ (output goes to fonts/):
   * underscore rebuilt as a bar that overhangs its cell, so "__" joins into one line
   * taller line height (S/M/L presets), with box-drawing, block and Powerline glyphs
     stretched to keep filling the cell
+  * coding ligatures (-> => == != >= :: // ...), same width as the characters they replace
   * italic flag fixed in head.macStyle for the Obliques
   * family renamed (the Bitstream Vera license requires modified versions to be renamed)
 
@@ -26,6 +27,7 @@ import sys
 from pathlib import Path
 
 import pathops
+from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen, RecordingPen
@@ -48,6 +50,14 @@ ASTERISK_SCALE = 1.15
 ASTERISK_CENTER_Y = 920   # Vera's sits at ~1053, near the cap height
 SLASH_WEIGHT = 0.85       # zero slash thickness, relative to the "|" stem
 UNDERSCORE_OVERHANG = 20  # units past each side of the cell
+
+# Longest first, so "===" wins over "==". "||" is deliberately left out: htop draws its
+# meters with "|", and "|>" is skipped after another "|" for the same reason.
+LIGATURES = ["<!--", "<=>", "-->", "===", "!==", "->", "=>", "<-", "==", "!=", ">=", "<=",
+             "::", "...", "&&", "//", "/*", "*/", "|>", "<>", "++", "--"]
+ARROWS = {"->", "-->", "<-", "=>", "<=>"}
+LIGATURE_TIGHTEN = 0.5    # gaps between the parts of a ligature shrink to this fraction,
+LIGATURE_MIN_GAP = 0.8    # but not below this fraction of the "|" stem
 
 
 # --- outline helpers -------------------------------------------------------------------
@@ -255,6 +265,180 @@ def stretch_cells(font, asc, desc):
     return len(recs)
 
 
+# --- ligatures -------------------------------------------------------------------------
+#
+# Each ligature keeps the width of the characters it replaces: the last character becomes
+# the ligature glyph, drawn leftwards over the previous cells, and the others become empty
+# spacers. The rules go in "calt" (contextual alternates), which editors and ligature-aware
+# terminals enable by default.
+
+def convex_hull(points):
+    pts = sorted(set(points))
+    if len(pts) < 3:
+        return pts
+
+    def half(seq):
+        out = []
+        for p in seq:
+            while len(out) >= 2 and ((out[-1][0] - out[-2][0]) * (p[1] - out[-2][1])
+                                     - (out[-1][1] - out[-2][1]) * (p[0] - out[-2][0])) <= 0:
+                out.pop()
+            out.append(p)
+        return out[:-1]
+    return half(pts) + half(reversed(pts))
+
+
+def polygon(points):
+    return ([("moveTo", (points[0],))] + [("lineTo", (p,)) for p in points[1:]]
+            + [("closePath", ())])
+
+
+def points_of(rec):
+    return [pt for _, args in rec for pt in args]
+
+
+def union(recs):
+    result = None
+    for rec in recs:
+        path = to_path(rec)
+        result = path if result is None else pathops.op(result, path, pathops.PathOp.UNION)
+    return pathops.op(result, pathops.Path(), pathops.PathOp.UNION, clockwise=True)
+
+
+def flat(recs):
+    return [op for rec in recs for op in rec]
+
+
+def placed(g, ch, cell):
+    """Glyph outline as stored (upright or slanted), moved into the given cell."""
+    return transformed(g.raw(ord(ch)), (1, 0, 0, 1, cell * g.advance(ord(ch)), 0))
+
+
+def joined_bars(g, ch, first, last, start=None, end=None):
+    """Bars of "-" or "=" in cells first..last merged into continuous bars. start/end
+    optionally stretch them to reach an x position (an arrowhead tip)."""
+    bars = []
+    for i, bar in enumerate(contours(g.raw(ord(ch)))):
+        x0, _, x1, _ = bounds(bar)
+        shifts = [first * g.advance(ord(ch)), last * g.advance(ord(ch))]
+        if start is not None:
+            shifts[0] = start - x0
+        if end is not None:
+            shifts[1] = end - x1
+        pts = [(x + dx, y) for dx in shifts for x, y in points_of(bar)]
+        bars.append(polygon(convex_hull(pts)))
+    return bars
+
+
+def arrow(g, seq):
+    """->  -->  <-  =>  <=> : a shaft of "-" or "=" bars running into the arrowheads."""
+    n, shaft = len(seq), "=" if "=" in seq else "-"
+    heads, start, end = [], None, None
+    allowed_x = [-10 ** 5, 10 ** 5]  # shaft is kept between the heads' open sides ...
+    hulls = []                        # ... or inside a head's outline
+    if seq[0] == "<":
+        head = placed(g, "<", 0)
+        heads.append(head)
+        hulls.append(polygon(convex_hull(points_of(head))))
+        x0, _, x1, _ = bounds(head)
+        start = x0
+        allowed_x[0] = min(x for x, _ in points_of(head) if x > (x0 + x1) / 2)
+    if seq[-1] == ">":
+        head = placed(g, ">", n - 1)
+        heads.append(head)
+        hulls.append(polygon(convex_hull(points_of(head))))
+        x0, _, x1, _ = bounds(head)
+        end = x1
+        allowed_x[1] = max(x for x, _ in points_of(head) if x < (x0 + x1) / 2)
+    first = 1 if seq[0] == "<" else 0
+    last = n - 2 if seq[-1] == ">" else n - 1
+    bars = joined_bars(g, shaft, first, last, start, end)
+    box = polygon([(allowed_x[0], -10 ** 4), (allowed_x[0], 10 ** 4),
+                   (allowed_x[1], 10 ** 4), (allowed_x[1], -10 ** 4)])
+    region = to_path(box)
+    for hull in hulls:
+        region = pathops.op(region, to_path(hull), pathops.PathOp.UNION)
+    clipped = [from_path(pathops.op(to_path(bar), region, pathops.PathOp.INTERSECTION))
+               for bar in bars]
+    return heads + clipped
+
+
+def ligature_parts(g, seq):
+    """The ligature as a list of parts, each a list of shapes (a glyph or a bar); parts are
+    later moved closer together, then all shapes are merged."""
+    if seq in ARROWS:
+        return [arrow(g, seq)]
+    parts, i = [], 0
+    while i < len(seq):
+        j = i
+        while j + 1 < len(seq) and seq[j + 1] == seq[i] and seq[i] in "=-":
+            j += 1
+        if j > i:
+            parts.append(joined_bars(g, seq[i], i, j))  # == === -- run
+        else:
+            parts.append([placed(g, seq[i], i)])
+        i = j + 1
+    return parts
+
+
+def tighten(g, parts):
+    """Shrink the gaps between parts, keeping the group centred where it was."""
+    if len(parts) == 1:
+        return parts[0]
+    min_gap = stem_width(g) * LIGATURE_MIN_GAP
+    boxes = [bounds(flat(p)) for p in parts]
+    shift, shifts = 0, [0]
+    for a, b in zip(boxes, boxes[1:]):
+        gap = b[0] - a[2]
+        shift += max(gap * LIGATURE_TIGHTEN, min(gap, min_gap)) - gap
+        shifts.append(shift)
+    old_center = (boxes[0][0] + boxes[-1][2]) / 2
+    new_center = (boxes[0][0] + boxes[-1][2] + shifts[-1]) / 2
+    out = []
+    for part, dx in zip(parts, shifts):
+        out += [transformed(shape, (1, 0, 0, 1, dx + old_center - new_center, 0)) for shape in part]
+    return out
+
+
+def ligatures(g):
+    font, cmap = g.font, g.cmap
+    names = [[cmap[ord(c)] for c in seq] for seq in LIGATURES]
+    order = font.getGlyphOrder()
+    new = []
+    for seq, gnames in zip(LIGATURES, names):
+        base = "_".join(gnames)
+        new += [base + ".liga", base + ".spacer"]
+    font.setGlyphOrder(order + new)
+
+    fea = ["languagesystem DFLT dflt;", "languagesystem latn dflt;"]
+    for k, (seq, gnames) in enumerate(zip(LIGATURES, names)):
+        adv = g.advance(ord(seq[-1]))
+        liga, spacer = "_".join(gnames) + ".liga", "_".join(gnames) + ".spacer"
+        # Shapes are merged whole (not contour by contour) so counters like those of "&" stay open.
+        shapes = tighten(g, ligature_parts(g, seq))
+        path = union([transformed(shape, (1, 0, 0, 1, -(len(seq) - 1) * adv, 0)) for shape in shapes])
+        set_glyph(font, liga, lambda pen, path=path: path.draw(pen), adv)
+        set_glyph(font, spacer, lambda pen: None, adv)
+
+        first, rest = gnames[0], " ".join(gnames[1:])
+        fea.append(f"lookup liga{k} {{")
+        # Not inside a longer run of the same characters ("====", "---", "///").
+        fea.append(f"  ignore sub {first} {first}' {rest};")
+        fea.append(f"  ignore sub {first}' {rest} {gnames[-1]};")
+        if seq == "|>":
+            fea.append("  ignore sub bar bar' greater;")
+        for i, name in enumerate(gnames):
+            back = " ".join([spacer] * i)
+            ahead = " ".join(gnames[i + 1:])
+            fea.append(f"  sub {back} {name}' {ahead} by {spacer if i < len(gnames) - 1 else liga};")
+        fea.append(f"}} liga{k};")
+    fea.append("feature calt {")
+    fea += [f"  lookup liga{k};" for k in range(len(LIGATURES))]
+    fea.append("} calt;")
+    addOpenTypeFeaturesFromString(font, "\n".join(fea), tables=["GSUB"])
+    return len(LIGATURES)
+
+
 # --- font ------------------------------------------------------------------------------
 
 def patch(src, dst, family, line):
@@ -270,6 +454,7 @@ def patch(src, dst, family, line):
     asterisk(g)
     braces(g)
     underscore(g)
+    ligatures(g)  # after the edits above: ligatures are built from the edited glyphs
     asc, desc = LINE[line]
     stretched = stretch_cells(font, asc, desc)
 
@@ -295,6 +480,8 @@ def patch(src, dst, family, line):
                      "zero, adjusted punctuation and line height.")
         rec.string = text
 
+    # Point/contour maxima for the new glyphs (stored bounds are left alone, see above).
+    font["maxp"].recalc(font)
     font.save(dst)
     return stretched
 
