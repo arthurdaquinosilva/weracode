@@ -34,6 +34,8 @@ All Nerd Font icons are unchanged.
 - Each ligature takes exactly as many cells as the characters it replaces, so columns and
   cursor movement are unaffected.
 - `===` and `!==` use three bars, so strict equality reads differently from `==` and `!=`.
+  The bars are snapped to whole pixels at 12px, so all three render equally sharp on
+  non-Retina screens; change `TRIPLE_BAR_PIXELS` in `build.py` for another size.
 - In `:=`, `<:` and similar the colon is raised to line up with `=`, `<` and `>`.
 - Longer runs of the same character (`====`, `---`, `////`, `::::`) are left alone.
 - Left out on purpose: `||`, `[|`, `|]`, `|-`, `-|` (htop meters and process tree), and

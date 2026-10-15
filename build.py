@@ -297,7 +297,9 @@ LIGATURE_TIGHTEN = 0.5    # in "tight" ligatures gaps shrink to this fraction,
 LIGATURE_MIN_GAP = 0.8    # but not below this fraction of the "|" stem
 # === as three light, airy bars (proportions after JetBrains Mono's):
 TRIPLE_BAR_WEIGHT = 0.75  # bar thickness, relative to an "=" bar
-TRIPLE_BAR_GAP = 3.0      # gap between bars, relative to their thickness
+TRIPLE_BAR_GAP = 2.6      # gap between bars, relative to their thickness
+TRIPLE_BAR_PIXELS = 12    # snap bars to whole pixels at this size (px), so all three
+                          # render equally sharp on 1x screens (macOS ignores hinting); None = off
 # Sizes relative to half the height of ">" (h) and the cell width (w), measured from
 # JetBrains Mono's ligatures (centre-line sizes; the stroke adds a little outside):
 ARROW_HEAD = (1.0, 1.0)           # → arrowhead: half-height × h, depth × h
@@ -448,6 +450,12 @@ def triple_bars(g, first, last):
     thickness = (bars[0][3] - bars[0][1]) * TRIPLE_BAR_WEIGHT
     gap = thickness * TRIPLE_BAR_GAP
     top = (y0 + y1) / 2 + 1.5 * thickness + gap
+    if TRIPLE_BAR_PIXELS:
+        px = g.font["head"].unitsPerEm / TRIPLE_BAR_PIXELS
+        thickness = px * max(1, round(thickness / px))
+        gap = px * max(1, round(gap / px - 0.25))  # lean tighter, so Bold gets Regular's gap
+        bottom = (y0 + y1) / 2 - 1.5 * thickness - gap
+        top = px * round(bottom / px) + 3 * thickness + 2 * gap
     left, right = x0 + first * adv, x1 + last * adv
     return [rect(left, top - k * (thickness + gap) - thickness, right, top - k * (thickness + gap))
             for k in range(3)]
