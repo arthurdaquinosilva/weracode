@@ -47,6 +47,13 @@ STRETCH_RANGES = [(0x2500, 0x259F), (0xE0A0, 0xE0A3), (0xE0B0, 0xE0D7)]
 
 HYPHEN_WIDTH = 0.6        # of the advance width
 DOT_SCALE = 1.25          # . , : ;
+EQUAL_SPACING = 1.45      # gap between the bars of "=", relative to Vera's
+PIXEL_SNAP = 12           # "=" bars (and so == === runs, arrows) sit on whole pixels at this
+                          # size (px), so they render sharp on 1x screens (macOS ignores
+                          # hinting) and joined pieces show no seams; None = off
+SQUARE_COMMA = (0x2C, 0x3B)  # glyphs whose lower part becomes a square dot with a tail
+# Tail sizes relative to the square dot's width (W) and height (H):
+COMMA_TAIL = dict(top=0.66, bottom=0.66, shift=0.60, depth=1.13, bend=0)
 ASTERISK_SCALE = 1.15
 ASTERISK_CENTER_Y = 920   # Vera's sits at ~1053, near the cap height
 SLASH_WEIGHT = 0.85       # zero slash thickness, relative to the "|" stem
@@ -216,6 +223,45 @@ def dots(g):
         g.put(cp, out)
 
 
+def square_comma(g):
+    """A square dot (the period's) with a tail hanging down and to the left (hooked if bend > 0)."""
+    x0, y0, x1, y1 = bounds(g.get(0x2E))
+    w, h, t = x1 - x0, y1 - y0, COMMA_TAIL
+    depth, shift, bend = t["depth"] * h, t["shift"] * w, t["bend"] * w
+
+    def edge(x):  # quadratic curve from just inside the dot down to the tail's end
+        p0, p1, p2 = (x, y0 + 0.1 * h), (x - shift / 2 + bend, y0 - depth / 2), (x - shift, y0 - depth)
+        return [tuple((1 - u) ** 2 * a + 2 * (1 - u) * u * b + u * u * c for a, b, c in zip(p0, p1, p2))
+                for u in (i / 24 for i in range(25))]
+
+    right = edge(x1)
+    left = [(x - (t["top"] + (t["bottom"] - t["top"]) * i / 24) * w, y) for i, (x, y) in enumerate(right)]
+    tail = polygon(right + left[::-1])
+    for cp in SQUARE_COMMA:
+        dots_above = [c for c in contours(g.get(cp)) if bounds(c)[1] > y1]
+        g.put(cp, flat(dots_above) + from_path(union([rect(x0, y0, x1, y1), tail])))
+
+
+def equal_sign(g):
+    """Space the bars of "=" by EQUAL_SPACING around their centre, then put them on whole
+    pixel rows at PIXEL_SNAP px."""
+    bars = sorted(contours(g.get(0x3D)), key=lambda c: bounds(c)[1])
+    (_, b0, _, b1), (_, t0, _, t1) = bounds(bars[0]), bounds(bars[1])
+    thick, gap, centre = b1 - b0, (t0 - b1) * EQUAL_SPACING, (b0 + t1) / 2
+    if PIXEL_SNAP:
+        px = g.font["head"].unitsPerEm / PIXEL_SNAP
+        thick, gap = px * max(1, round(thick / px)), px * max(1, round(gap / px))
+        bottom = px * round((centre - thick - gap / 2) / px)
+    else:
+        bottom = centre - thick - gap / 2
+    out = []
+    for bar, y in zip(bars, (bottom, bottom + thick + gap)):
+        _, y0, _, y1 = bounds(bar)
+        k = thick / (y1 - y0)
+        out += transformed(bar, (1, 0, 0, k, 0, y - y0 * k))
+    g.put(0x3D, out)
+
+
 def asterisk(g):
     rec = g.get(0x2A)
     x0, y0, x1, y1 = bounds(rec)
@@ -293,13 +339,14 @@ LIGATURES = {
     "<+>": "tight", "+>": "tight", "</": "tight", "/>": "tight", "</>": "tight",
     "{{": "tight", "}}": "tight", "<!--": "tight",
 }
+EQUAL_RUN = 4             # runs of this many "=" or more join into one double line
+                          # (Markdown heading underlines, ==== separators)
 LIGATURE_TIGHTEN = 0.5    # in "tight" ligatures gaps shrink to this fraction,
 LIGATURE_MIN_GAP = 0.8    # but not below this fraction of the "|" stem
-# === as three light, airy bars (proportions after JetBrains Mono's):
+# "triple" === as three light, airy bars (proportions after JetBrains Mono's):
 TRIPLE_BAR_WEIGHT = 0.75  # bar thickness, relative to an "=" bar
 TRIPLE_BAR_GAP = 2.6      # gap between bars, relative to their thickness
-TRIPLE_BAR_PIXELS = 12    # snap bars to whole pixels at this size (px), so all three
-                          # render equally sharp on 1x screens (macOS ignores hinting); None = off
+TRIPLE_EQUAL = "double"   # === and !==: "double" (one long "=") or "triple" (three bars)
 # Sizes relative to half the height of ">" (h) and the cell width (w), measured from
 # JetBrains Mono's ligatures (centre-line sizes; the stroke adds a little outside):
 ARROW_HEAD = (1.0, 1.0)           # → arrowhead: half-height × h, depth × h
@@ -450,8 +497,8 @@ def triple_bars(g, first, last):
     thickness = (bars[0][3] - bars[0][1]) * TRIPLE_BAR_WEIGHT
     gap = thickness * TRIPLE_BAR_GAP
     top = (y0 + y1) / 2 + 1.5 * thickness + gap
-    if TRIPLE_BAR_PIXELS:
-        px = g.font["head"].unitsPerEm / TRIPLE_BAR_PIXELS
+    if PIXEL_SNAP:
+        px = g.font["head"].unitsPerEm / PIXEL_SNAP
         thickness = px * max(1, round(thickness / px))
         gap = px * max(1, round(gap / px - 0.25))  # lean tighter, so Bold gets Regular's gap
         bottom = (y0 + y1) / 2 - 1.5 * thickness - gap
@@ -523,9 +570,9 @@ def less_equal(m, seq):
 
 
 def not_equal(g, m, seq):
-    """≠ (2 cells) and its three-bar form for !== (3 cells)."""
+    """≠ (2 cells), and a longer one for !== (3 cells, three bars if TRIPLE_EQUAL is "triple")."""
     n = len(seq)
-    bars = triple_bars(g, 0, 2) if n == 3 else joined_bars(g, "=", 0, 1)
+    bars = triple_bars(g, 0, 2) if n == 3 and TRIPLE_EQUAL == "triple" else joined_bars(g, "=", 0, n - 1)
     # the slash always sticks out past the bars, however tall === is
     top = max(bounds(bar)[3] for bar in bars)
     half = max(NOT_EQUAL[0] * m.h, top - m.axis + 0.3 * m.h)
@@ -593,6 +640,35 @@ def tighten(g, parts):
     return out
 
 
+def equal_run(g):
+    """Glyphs and calt lookups joining runs of EQUAL_RUN or more "=" into one double line."""
+    font, name, adv = g.font, g.cmap[ord("=")], g.advance(ord("="))
+    bars = contours(g.raw(ord("=")))
+    o = 0.15 * adv  # pieces overlap ~1px at 12px, so no light seam shows where they meet
+    pieces = {"start": ((0, 1), (-10 ** 4, adv + o)),
+              "mid": ((-1, 0, 1), (-o, adv + o)),
+              "end": ((-1, 0), (-o, 10 ** 4))}
+    names = {}
+    for piece, (cells, (x0, x1)) in pieces.items():
+        names[piece] = f"{name}.{piece}"
+        font.setGlyphOrder(font.getGlyphOrder() + [names[piece]])
+        hulls = [polygon(convex_hull([(x + k * adv, y) for k in cells for x, y in points_of(bar)]))
+                 for bar in bars]
+        rec = clip(flat(hulls), to_path(rect(x0, -10 ** 4, x1, 10 ** 4)))
+        set_glyph(font, names[piece], lambda pen, rec=rec: replay(rec, pen), adv)
+    start, mid, end = names["start"], names["mid"], names["end"]
+    return [
+        "lookup equal_run_start {",
+        f"  ignore sub [{name} {start} {mid}] {name}';",
+        f"  sub {name}' {' '.join([name] * (EQUAL_RUN - 1))} by {start};",
+        "} equal_run_start;",
+        "lookup equal_run_rest {",
+        f"  sub [{start} {mid}] {name}' {name} by {mid};",
+        f"  sub [{start} {mid}] {name}' by {end};",
+        "} equal_run_rest;",
+    ]
+
+
 def ligature_shapes(g, m, seq):
     kind = LIGATURES[seq]
     if kind == "arrow":
@@ -602,7 +678,9 @@ def ligature_shapes(g, m, seq):
     if kind == "not_equal":
         return not_equal(g, m, seq)
     if kind == "bars":
-        return triple_bars(g, 0, 2) if seq == "===" else joined_bars(g, "=", 0, 1)
+        if seq == "===" and TRIPLE_EQUAL == "triple":
+            return triple_bars(g, 0, 2)
+        return joined_bars(g, "=", 0, len(seq) - 1)
     if kind == "diamond":
         return diamond(m)
     if kind == "triangle":
@@ -641,7 +719,9 @@ def ligatures(g):
             ahead = " ".join(gnames[i + 1:])
             fea.append(f"  sub {back} {name}' {ahead} by {spacer if i < len(gnames) - 1 else liga};")
         fea.append(f"}} liga{k};")
+    fea += equal_run(g)
     fea.append("feature calt {")
+    fea += ["  lookup equal_run_start;", "  lookup equal_run_rest;"]  # before the ligatures
     fea += [f"  lookup liga{k};" for k in range(len(seqs))]
     fea.append("} calt;")
     addOpenTypeFeaturesFromString(font, "\n".join(fea), tables=["GSUB"])
@@ -660,6 +740,8 @@ def patch(src, dst, family, line):
     slashed_zero(g)
     dashes(g)
     dots(g)
+    square_comma(g)  # after dots(): uses the enlarged period
+    equal_sign(g)
     asterisk(g)
     braces(g)
     underscore(g)

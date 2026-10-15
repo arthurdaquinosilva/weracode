@@ -13,6 +13,8 @@ Vera's own outlines; no glyphs are taken from other fonts.
 | `-` (and soft hyphen) | Wider, centred on the `+` bar |
 | `–` `—` `~` | Centred on the `+` bar |
 | `.` `,` `:` `;` | Dots 25% larger |
+| `,` `;` | Square dot with a straight tail slanting down to the left |
+| `=` | Bars spaced further apart, on whole pixels at 12px (sharp on non-Retina screens) |
 | `*` | 15% larger, lowered toward mid-height |
 | `{` `}` | Same height as `( )` and `[ ]` |
 | Line height | ~8% taller; box-drawing, block and Powerline glyphs stretched to fill the cell |
@@ -33,11 +35,12 @@ All Nerd Font icons are unchanged.
 
 - Each ligature takes exactly as many cells as the characters it replaces, so columns and
   cursor movement are unaffected.
-- `===` and `!==` use three bars, so strict equality reads differently from `==` and `!=`.
-  The bars are snapped to whole pixels at 12px, so all three render equally sharp on
-  non-Retina screens; change `TRIPLE_BAR_PIXELS` in `build.py` for another size.
+- `===` is one long `=` across its three cells, and `!==` a long `≠`
+  (`TRIPLE_EQUAL = "triple"` in `build.py` draws three bars instead).
 - In `:=`, `<:` and similar the colon is raised to line up with `=`, `<` and `>`.
-- Longer runs of the same character (`====`, `---`, `////`, `::::`) are left alone.
+- Runs of four or more `=` join into one continuous double line, for Markdown heading
+  underlines and `====` separators.
+- Other longer runs of the same character (`---`, `////`, `::::`) are left alone.
 - Left out on purpose: `||`, `[|`, `|]`, `|-`, `-|` (htop meters and process tree), and
   ligatures with `|` are skipped next to `|`, `[` or `]`; `#` sequences (Markdown headings);
   `--` (command-line flags such as `--help`).
@@ -64,8 +67,8 @@ python3 build.py --line M        # taller line height: S (default), M, L, or ver
 python3 build.py --family "Name" # different family name
 ```
 
-Sizes and positions are constants at the top of `build.py` (`DOT_SCALE`, `HYPHEN_WIDTH`,
-`ASTERISK_CENTER_Y`, ...). `source/` holds the unmodified Nerd Font files the build reads.
+Sizes and positions are constants at the top of `build.py` (`DOT_SCALE`, `EQUAL_SPACING`,
+`COMMA_TAIL`, `PIXEL_SNAP`, ...). `source/` holds the unmodified Nerd Font files the build reads.
 
 ## License
 
