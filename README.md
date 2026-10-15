@@ -71,3 +71,10 @@ Modified from Bitstream Vera Sans Mono, Copyright (c) 2003 by Bitstream, Inc., u
 Bitstream Vera Fonts license (see [LICENSE.txt](LICENSE.txt)). As that license requires, the
 modified fonts do not use "Bitstream" or "Vera" in their names. Bitstream Vera is a trademark
 of Bitstream, Inc.
+
+The icon glyphs were added by [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) and come
+from several icon sets, each under its own license; see the Nerd Fonts
+[license information](https://github.com/ryanoasis/nerd-fonts/blob/master/LICENSE) for details.
+
+The ligatures are styled after [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono)'s,
+but drawn from Vera's own glyphs; no outlines are taken from it.
