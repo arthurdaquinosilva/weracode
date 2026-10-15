@@ -22,15 +22,23 @@ All Nerd Font icons are unchanged.
 
 ## Ligatures
 
-`->` `-->` `<-` `=>` `<=>` `==` `===` `!=` `!==` `>=` `<=` `::` `...` `&&` `//` `/*` `*/`
-`|>` `<>` `++` `--` `<!--`
+77 ligatures in the style of JetBrains Mono, drawn from Vera's own measurements:
+
+| Kind | Ligatures |
+|---|---|
+| Arrows → ⇒ ↦ | `->` `-->` `<-` `<--` `<->` `<-->` `\|->` `=>` `==>` `<==` `<=>` `<==>` `\|=>` |
+| Wavy arrows | `~>` `~~>` `<~` `<~~` `<~>` `~~` |
+| Symbols | `<=` ≤ · `>=` ≥ · `!=` ≠ · `!==` · `==` · `===` ≡ · `<>` ◇ · `\|>` ▷ · `<\|` ◁ · `<\|>` |
+| Spacing / alignment | `::` `:::` `:=` `=:` `::=` `<:` `:<` `:>` `>:` `..` `...` `..<` `..=` `?.` `??` `?:` `?=` `!!` `;;` `&&` `++` `+++` `//` `///` `/*` `*/` `/**` `<<` `>>` `<<<` `>>>` `<<=` `>>=` `<*` `<*>` `*>` `<$` `<$>` `$>` `<+` `<+>` `+>` `</` `/>` `</>` `{{` `}}` `<!--` |
 
 - Each ligature takes exactly as many cells as the characters it replaces, so columns and
   cursor movement are unaffected.
-- Arrows and runs of `=`/`-` are joined; the others keep their characters, drawn closer together.
-- Longer runs of the same character (`====`, `---`, `////`, `:::`) are left alone.
-- `||` is intentionally not a ligature, and `|>` is skipped after another `|`, so htop's `|`
-  meters stay uniform.
+- `===` and `!==` use three bars, so strict equality reads differently from `==` and `!=`.
+- In `:=`, `<:` and similar the colon is raised to line up with `=`, `<` and `>`.
+- Longer runs of the same character (`====`, `---`, `////`, `::::`) are left alone.
+- Left out on purpose: `||`, `[|`, `|]`, `|-`, `-|` (htop meters and process tree), and
+  ligatures with `|` are skipped next to `|`, `[` or `]`; `#` sequences (Markdown headings);
+  `--` (command-line flags such as `--help`).
 - They are in the `calt` feature: on by default in VS Code (`"editor.fontLigatures": true`),
   JetBrains IDEs, Kitty, WezTerm and Ghostty; iTerm2 needs *Use ligatures* enabled in the
   profile's Text settings. Terminals without ligature support show the plain characters.

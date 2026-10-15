@@ -11,7 +11,8 @@ For every style and Nerd Font variant in source/ (output goes to fonts/):
   * underscore rebuilt as a bar that overhangs its cell, so "__" joins into one line
   * taller line height (S/M/L presets), with box-drawing, block and Powerline glyphs
     stretched to keep filling the cell
-  * coding ligatures (-> => == != >= :: // ...), same width as the characters they replace
+  * 77 coding ligatures in the style of JetBrains Mono (→ ⇒ ≤ ≠ ≡ ◇ ▷ ...), same width
+    as the characters they replace
   * italic flag fixed in head.macStyle for the Obliques
   * family renamed (the Bitstream Vera license requires modified versions to be renamed)
 
@@ -50,14 +51,6 @@ ASTERISK_SCALE = 1.15
 ASTERISK_CENTER_Y = 920   # Vera's sits at ~1053, near the cap height
 SLASH_WEIGHT = 0.85       # zero slash thickness, relative to the "|" stem
 UNDERSCORE_OVERHANG = 20  # units past each side of the cell
-
-# Longest first, so "===" wins over "==". "||" is deliberately left out: htop draws its
-# meters with "|", and "|>" is skipped after another "|" for the same reason.
-LIGATURES = ["<!--", "<=>", "-->", "===", "!==", "->", "=>", "<-", "==", "!=", ">=", "<=",
-             "::", "...", "&&", "//", "/*", "*/", "|>", "<>", "++", "--"]
-ARROWS = {"->", "-->", "<-", "=>", "<=>"}
-LIGATURE_TIGHTEN = 0.5    # gaps between the parts of a ligature shrink to this fraction,
-LIGATURE_MIN_GAP = 0.8    # but not below this fraction of the "|" stem
 
 
 # --- outline helpers -------------------------------------------------------------------
@@ -267,10 +260,74 @@ def stretch_cells(font, asc, desc):
 
 # --- ligatures -------------------------------------------------------------------------
 #
-# Each ligature keeps the width of the characters it replaces: the last character becomes
-# the ligature glyph, drawn leftwards over the previous cells, and the others become empty
-# spacers. The rules go in "calt" (contextual alternates), which editors and ligature-aware
-# terminals enable by default.
+# Coding ligatures in the style of JetBrains Mono: arrows, comparisons and a few operators
+# become symbols (→ ⇒ ≤ ≠ ◇ ▷ ...), the rest keep their characters with tighter spacing
+# and aligned heights. Every ligature keeps the width of the characters it replaces: the
+# last character becomes the ligature glyph, drawn leftwards over the previous cells, and
+# the others become empty spacers. The rules go in "calt" (contextual alternates), which
+# editors and ligature-aware terminals enable by default.
+#
+# Left out on purpose: anything with "||", "[|", "|]", "|-" or "-|" (htop meters and its
+# ASCII process tree), and ligatures containing "|" are skipped next to "|", "[" or "]";
+# "#" sequences (Markdown headings); "--" (command-line flags).
+
+LIGATURES = {
+    # arrows: a shaft of "-", "=" or "~" with optional heads ("<", ">") and tail ("|")
+    "->": "arrow", "-->": "arrow", "<-": "arrow", "<--": "arrow", "<->": "arrow",
+    "<-->": "arrow", "|->": "arrow", "=>": "arrow", "==>": "arrow", "<==": "arrow",
+    "<=>": "arrow", "<==>": "arrow", "|=>": "arrow", "~>": "arrow", "~~>": "arrow",
+    "<~": "arrow", "<~~": "arrow", "<~>": "arrow", "~~": "arrow",
+    # symbols
+    "<=": "less_equal", ">=": "greater_equal", "!=": "not_equal", "!==": "not_equal",
+    "==": "bars", "===": "bars", "<>": "diamond", "|>": "triangle", "<|": "triangle",
+    "<|>": "triangle",
+    # characters kept, spacing and heights adjusted
+    "::": "tight", ":::": "tight", ":=": "tight", "=:": "tight", "::=": "tight",
+    "<:": "tight", ":<": "tight", ":>": "tight", ">:": "tight", "..": "tight",
+    "...": "tight", "..<": "tight", "..=": "tight", "?.": "tight", "??": "tight",
+    "?:": "tight", "?=": "tight", "!!": "tight", ";;": "tight", "&&": "tight",
+    "++": "tight", "+++": "tight", "//": "tight", "///": "tight", "/*": "tight",
+    "*/": "tight", "/**": "tight", "<<": "tight", ">>": "tight", "<<<": "tight",
+    ">>>": "tight", "<<=": "tight", ">>=": "tight", "<*": "tight", "<*>": "tight",
+    "*>": "tight", "<$": "tight", "<$>": "tight", "$>": "tight", "<+": "tight",
+    "<+>": "tight", "+>": "tight", "</": "tight", "/>": "tight", "</>": "tight",
+    "{{": "tight", "}}": "tight", "<!--": "tight",
+}
+LIGATURE_TIGHTEN = 0.5    # in "tight" ligatures gaps shrink to this fraction,
+LIGATURE_MIN_GAP = 0.8    # but not below this fraction of the "|" stem
+# === as three light, airy bars (proportions after JetBrains Mono's):
+TRIPLE_BAR_WEIGHT = 0.75  # bar thickness, relative to an "=" bar
+TRIPLE_BAR_GAP = 3.0      # gap between bars, relative to their thickness
+# Sizes relative to half the height of ">" (h) and the cell width (w), measured from
+# JetBrains Mono's ligatures (centre-line sizes; the stroke adds a little outside):
+ARROW_HEAD = (1.0, 1.0)           # → arrowhead: half-height × h, depth × h
+DOUBLE_ARROW_HEAD = (1.05, 1.55)  # ⇒ arrowhead: longer arms for a sharper tip
+ARROW_STYLE = "open"              # → heads: "open" chevron, "filled" triangle, "barbed" ➤
+DOUBLE_ARROW_STYLE = "open"       # ⇒ heads, same choices
+ARROW_NOTCH = 0.35                # "barbed": how far the back of the head is cut in
+LESS_EQUAL = (0.95, 1.0, 0.85)    # ≤ ≥: chevron half-height × h, width × w, bar drop × h
+DIAMOND = (1.0, 0.72)             # ◇: half-height × h, half-width × w
+TRIANGLE = (1.45, 1.05)           # ▷: half-height × h, width × w
+NOT_EQUAL = (1.25, 0.35)          # ≠ slash: half-height × h, horizontal run per unit height
+WAVE_AMPLITUDE = 0.25             # ~~ waves: amplitude × h
+
+
+class Measures:
+    """Stroke weights and positions taken from the font's own glyphs."""
+
+    def __init__(self, g):
+        self.adv = g.advance(ord("="))
+        self.axis = plus_bar_center(g)
+        _, y0, _, y1 = bounds(g.raw(ord("-")))
+        self.thin = y1 - y0  # hyphen thickness: single arrows, waves
+        bars = sorted((bounds(c) for c in contours(g.raw(ord("=")))), key=lambda b: b[1])
+        self.bar = bars[0][3] - bars[0][1]  # "=" bar thickness: double arrows, ≤ ≠ ◇ ▷
+        self.bar_gap = bars[1][1] - bars[0][3]
+        self.margin = bars[0][0]  # side bearing of "=": where arrows start and end
+        _, y0, _, y1 = bounds(g.raw(ord(">")))
+        self.h = (y1 - y0) / 2
+        self.wave = WAVE_AMPLITUDE * self.h
+
 
 def convex_hull(points):
     pts = sorted(set(points))
@@ -293,6 +350,10 @@ def polygon(points):
             + [("closePath", ())])
 
 
+def rect(x0, y0, x1, y1):
+    return polygon([(x0, y0), (x0, y1), (x1, y1), (x1, y0)])
+
+
 def points_of(rec):
     return [pt for _, args in rec for pt in args]
 
@@ -305,8 +366,64 @@ def union(recs):
     return pathops.op(result, pathops.Path(), pathops.PathOp.UNION, clockwise=True)
 
 
+def clip(rec, region):
+    return from_path(pathops.op(to_path(rec), region, pathops.PathOp.INTERSECTION))
+
+
 def flat(recs):
     return [op for rec in recs for op in rec]
+
+
+def stroke(points, width, closed=False):
+    """Outline of a polyline drawn with a pen of the given width, mitred corners."""
+    h, n = width / 2, len(points)
+
+    def unit(a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        d = math.hypot(dx, dy)
+        return dx / d, dy / d
+
+    left, right = [], []
+    for i, (x, y) in enumerate(points):
+        ins = unit(points[i - 1], points[i]) if closed or i > 0 else None
+        outs = unit(points[i], points[(i + 1) % n]) if closed or i < n - 1 else None
+        normals = [(-d[1], d[0]) for d in (ins, outs) if d]
+        mx, my = sum(v[0] for v in normals), sum(v[1] for v in normals)
+        m = math.hypot(mx, my)
+        mx, my = mx / m, my / m
+        k = h / (mx * normals[0][0] + my * normals[0][1])
+        left.append((x + mx * k, y + my * k))
+        right.append((x - mx * k, y - my * k))
+    if not closed:
+        return polygon(left + right[::-1])
+    outer, inner = sorted((left, right), key=lambda p: -area(bounds(polygon(p))))
+    return from_path(pathops.op(to_path(polygon(outer)), to_path(polygon(inner)),
+                                pathops.PathOp.DIFFERENCE))
+
+
+def chevron(tip, direction, half_height, depth, width):
+    """Open arrowhead pointing right (direction=1) or left (-1): its outer corner lands on
+    `tip`, and the arm ends are cut upright `depth` behind it."""
+    tx, ty = tip
+    miter = width / 2 / math.sin(math.atan2(half_height, depth))
+    vx = tx - direction * miter  # centre-line vertex, so the outer corner is at the tip
+    back = vx - direction * depth * 1.5
+    arms = stroke([(back, ty + half_height * 1.5), (vx, ty), (back, ty - half_height * 1.5)], width)
+    cut = tx - direction * depth
+    return clip(arms, to_path(rect(cut, -10 ** 4, cut + direction * 10 ** 4, 10 ** 4)))
+
+
+def arrowhead(tip, direction, half_height, depth, width, style):
+    """Head of a single arrow: an open chevron, or a solid "filled"/"barbed" triangle."""
+    if style == "open":
+        return chevron(tip, direction, half_height, depth, width)
+    tx, ty = tip
+    back = tx - direction * depth
+    pts = [(tx, ty), (back, ty + half_height)]
+    if style == "barbed":
+        pts.append((tx - direction * depth * (1 - ARROW_NOTCH), ty))
+    pts.append((back, ty - half_height))
+    return polygon(pts)
 
 
 def placed(g, ch, cell):
@@ -314,69 +431,137 @@ def placed(g, ch, cell):
     return transformed(g.raw(ord(ch)), (1, 0, 0, 1, cell * g.advance(ord(ch)), 0))
 
 
-def joined_bars(g, ch, first, last, start=None, end=None):
-    """Bars of "-" or "=" in cells first..last merged into continuous bars. start/end
-    optionally stretch them to reach an x position (an arrowhead tip)."""
-    bars = []
-    for i, bar in enumerate(contours(g.raw(ord(ch)))):
-        x0, _, x1, _ = bounds(bar)
-        shifts = [first * g.advance(ord(ch)), last * g.advance(ord(ch))]
-        if start is not None:
-            shifts[0] = start - x0
-        if end is not None:
-            shifts[1] = end - x1
-        pts = [(x + dx, y) for dx in shifts for x, y in points_of(bar)]
-        bars.append(polygon(convex_hull(pts)))
-    return bars
+def joined_bars(g, ch, first, last):
+    """Bars of "-" or "=" in cells first..last merged into continuous bars."""
+    adv = g.advance(ord(ch))
+    return [polygon(convex_hull([(x + dx, y) for dx in (first * adv, last * adv)
+                                 for x, y in points_of(bar)]))
+            for bar in contours(g.raw(ord(ch)))]
 
 
-def arrow(g, seq):
-    """->  -->  <-  =>  <=> : a shaft of "-" or "=" bars running into the arrowheads."""
-    n, shaft = len(seq), "=" if "=" in seq else "-"
-    heads, start, end = [], None, None
-    allowed_x = [-10 ** 5, 10 ** 5]  # shaft is kept between the heads' open sides ...
-    hulls = []                        # ... or inside a head's outline
+def triple_bars(g, first, last):
+    """Three bars across cells first..last, so strict === reads differently from ==."""
+    bars = [bounds(bar) for bar in contours(g.raw(ord("=")))]
+    x0, y0 = min(b[0] for b in bars), min(b[1] for b in bars)
+    x1, y1 = max(b[2] for b in bars), max(b[3] for b in bars)
+    adv = g.advance(ord("="))
+    thickness = (bars[0][3] - bars[0][1]) * TRIPLE_BAR_WEIGHT
+    gap = thickness * TRIPLE_BAR_GAP
+    top = (y0 + y1) / 2 + 1.5 * thickness + gap
+    left, right = x0 + first * adv, x1 + last * adv
+    return [rect(left, top - k * (thickness + gap) - thickness, right, top - k * (thickness + gap))
+            for k in range(3)]
+
+
+def wave(m, x0, x1):
+    """A "~" line from x0 to x1, starting and ending on the axis."""
+    period = m.adv
+    halves = max(1, round(2 * (x1 - x0) / period))
+    steps = halves * 12
+    pts = [(x0 + (x1 - x0) * i / steps,
+            m.axis + m.wave * math.sin(math.pi * halves * i / steps)) for i in range(steps + 1)]
+    return stroke(pts, m.thin)
+
+
+def arrow(g, m, seq):
+    n = len(seq)
+    left, right = m.margin, n * m.adv - m.margin
+    shaft = next(c for c in seq if c in "-=~")
+    width = m.bar if shaft == "=" else m.thin
+    hh, depth = DOUBLE_ARROW_HEAD if shaft == "=" else ARROW_HEAD
+    hh, depth = hh * m.h, depth * m.h
+    shapes, hulls = [], []
+    open_x = [-10 ** 4, 10 ** 4]  # shafts may run freely between the heads' open sides
+    style = DOUBLE_ARROW_STYLE if shaft == "=" else ARROW_STYLE
     if seq[0] == "<":
-        head = placed(g, "<", 0)
-        heads.append(head)
-        hulls.append(polygon(convex_hull(points_of(head))))
-        x0, _, x1, _ = bounds(head)
-        start = x0
-        allowed_x[0] = min(x for x, _ in points_of(head) if x > (x0 + x1) / 2)
+        shapes.append(arrowhead((left, m.axis), -1, hh, depth, width, style))
+        open_x[0] = left + depth
     if seq[-1] == ">":
-        head = placed(g, ">", n - 1)
-        heads.append(head)
-        hulls.append(polygon(convex_hull(points_of(head))))
-        x0, _, x1, _ = bounds(head)
-        end = x1
-        allowed_x[1] = max(x for x, _ in points_of(head) if x < (x0 + x1) / 2)
-    first = 1 if seq[0] == "<" else 0
-    last = n - 2 if seq[-1] == ">" else n - 1
-    bars = joined_bars(g, shaft, first, last, start, end)
-    box = polygon([(allowed_x[0], -10 ** 4), (allowed_x[0], 10 ** 4),
-                   (allowed_x[1], 10 ** 4), (allowed_x[1], -10 ** 4)])
-    region = to_path(box)
+        shapes.append(arrowhead((right, m.axis), 1, hh, depth, width, style))
+        open_x[1] = right - depth
+    hulls = [polygon(convex_hull(points_of(s))) for s in shapes]
+    start = left
+    if seq[0] == "|":  # maps-to tail: ↦ ⤇
+        shapes.append(rect(left, m.axis - hh, left + width, m.axis + hh))
+        start = left + width / 2
+    if shaft == "-":
+        lines = [rect(start, m.axis - width / 2, right, m.axis + width / 2)]
+    elif shaft == "=":
+        offset = (m.bar_gap + m.bar) / 2
+        lines = [rect(start, m.axis + dy - width / 2, right, m.axis + dy + width / 2)
+                 for dy in (-offset, offset)]
+    else:
+        lines = [wave(m, start, right)]
+    region = to_path(rect(open_x[0], -10 ** 4, open_x[1], 10 ** 4))
     for hull in hulls:
         region = pathops.op(region, to_path(hull), pathops.PathOp.UNION)
-    clipped = [from_path(pathops.op(to_path(bar), region, pathops.PathOp.INTERSECTION))
-               for bar in bars]
-    return heads + clipped
+    return shapes + [clip(line, region) for line in lines]
 
 
-def ligature_parts(g, seq):
-    """The ligature as a list of parts, each a list of shapes (a glyph or a bar); parts are
-    later moved closer together, then all shapes are merged."""
-    if seq in ARROWS:
-        return [arrow(g, seq)]
+def less_equal(m, seq):
+    """≤ / ≥: a chevron with a bar under it parallel to its lower arm."""
+    direction = -1 if seq[0] == "<" else 1
+    hh, w, drop = LESS_EQUAL[0] * m.h, LESS_EQUAL[1] * m.adv, LESS_EQUAL[2] * m.h
+    cy = m.axis + drop / 2
+    tip_x = m.adv + direction * w / 2
+    end_x = tip_x - direction * w
+    head = chevron((tip_x, cy), direction, hh, w, m.bar)
+    # lower arm runs from the tip to (end_x, cy - hh); the bar is that line moved down
+    dx, dy = end_x - tip_x, -hh
+    line = stroke([(tip_x - dx * 0.5, cy - drop - dy * 0.5),
+                   (tip_x + dx * 1.5, cy - drop + dy * 1.5)], m.bar)
+    x0, x1 = sorted((tip_x, end_x))
+    return [head, clip(line, to_path(rect(x0, -10 ** 4, x1, 10 ** 4)))]
+
+
+def not_equal(g, m, seq):
+    """≠ (2 cells) and its three-bar form for !== (3 cells)."""
+    n = len(seq)
+    bars = triple_bars(g, 0, 2) if n == 3 else joined_bars(g, "=", 0, 1)
+    # the slash always sticks out past the bars, however tall === is
+    top = max(bounds(bar)[3] for bar in bars)
+    half = max(NOT_EQUAL[0] * m.h, top - m.axis + 0.3 * m.h)
+    cx, run = n * m.adv / 2, half * NOT_EQUAL[1]
+    slash = stroke([(cx - run * 1.5, m.axis - half * 1.5), (cx + run * 1.5, m.axis + half * 1.5)], m.bar)
+    return bars + [clip(slash, to_path(rect(-10 ** 4, m.axis - half, 10 ** 4, m.axis + half)))]
+
+
+def diamond(m):
+    hh, hw = DIAMOND[0] * m.h, DIAMOND[1] * m.adv
+    cx = m.adv
+    return [stroke([(cx - hw, m.axis), (cx, m.axis + hh), (cx + hw, m.axis), (cx, m.axis - hh)],
+                   m.bar, closed=True)]
+
+
+def triangles(m, seq):
+    """▷ |>, ◁ <|, and ◁▷ <|> sharing their upright side."""
+    hh, w = TRIANGLE[0] * m.h, TRIANGLE[1] * m.adv
+    cx = len(seq) * m.adv / 2
+    shapes = []
+    for direction in ([1] if seq == "|>" else [-1] if seq == "<|" else [-1, 1]):
+        base = cx if seq == "<|>" else cx - direction * w / 2
+        tip = base + direction * w
+        shapes.append(stroke([(base, m.axis - hh), (base, m.axis + hh), (tip, m.axis)],
+                             m.bar, closed=True))
+    return shapes
+
+
+def tight_parts(g, m, seq):
+    """Characters kept, as parts to be moved closer; colons and asterisks next to = < >
+    are centred on the axis, like the operators they belong to."""
     parts, i = [], 0
     while i < len(seq):
         j = i
         while j + 1 < len(seq) and seq[j + 1] == seq[i] and seq[i] in "=-":
             j += 1
         if j > i:
-            parts.append(joined_bars(g, seq[i], i, j))  # == === -- run
+            parts.append(joined_bars(g, seq[i], i, j))  # the "--" of "<!--"
         else:
-            parts.append([placed(g, seq[i], i)])
+            shape = placed(g, seq[i], i)
+            if (seq[i] == ":" and set(seq) & set("=<>")) or (seq[i] == "*" and set(seq) & set("<>")):
+                _, y0, _, y1 = bounds(shape)
+                shape = transformed(shape, (1, 0, 0, 1, 0, m.axis - (y0 + y1) / 2))
+            parts.append([shape])
         i = j + 1
     return parts
 
@@ -400,23 +585,38 @@ def tighten(g, parts):
     return out
 
 
-def ligatures(g):
-    font, cmap = g.font, g.cmap
-    names = [[cmap[ord(c)] for c in seq] for seq in LIGATURES]
-    order = font.getGlyphOrder()
-    new = []
-    for seq, gnames in zip(LIGATURES, names):
-        base = "_".join(gnames)
-        new += [base + ".liga", base + ".spacer"]
-    font.setGlyphOrder(order + new)
+def ligature_shapes(g, m, seq):
+    kind = LIGATURES[seq]
+    if kind == "arrow":
+        return arrow(g, m, seq)
+    if kind in ("less_equal", "greater_equal"):
+        return less_equal(m, seq)
+    if kind == "not_equal":
+        return not_equal(g, m, seq)
+    if kind == "bars":
+        return triple_bars(g, 0, 2) if seq == "===" else joined_bars(g, "=", 0, 1)
+    if kind == "diamond":
+        return diamond(m)
+    if kind == "triangle":
+        return triangles(m, seq)
+    return tighten(g, tight_parts(g, m, seq))
 
-    fea = ["languagesystem DFLT dflt;", "languagesystem latn dflt;"]
-    for k, (seq, gnames) in enumerate(zip(LIGATURES, names)):
+
+def ligatures(g):
+    font, cmap, m = g.font, g.cmap, Measures(g)
+    seqs = sorted(LIGATURES, key=len, reverse=True)  # longest first: "===" before "=="
+    names = [[cmap[ord(c)] for c in seq] for seq in seqs]
+    font.setGlyphOrder(font.getGlyphOrder() + [f"{'_'.join(n)}.{s}" for n in names
+                                               for s in ("liga", "spacer")])
+
+    fea = ["languagesystem DFLT dflt;", "languagesystem latn dflt;",
+           "@htop = [bar bracketleft bracketright];"]
+    for k, (seq, gnames) in enumerate(zip(seqs, names)):
         adv = g.advance(ord(seq[-1]))
         liga, spacer = "_".join(gnames) + ".liga", "_".join(gnames) + ".spacer"
+        shift = (1, 0, 0, 1, -(len(seq) - 1) * adv, 0)
         # Shapes are merged whole (not contour by contour) so counters like those of "&" stay open.
-        shapes = tighten(g, ligature_parts(g, seq))
-        path = union([transformed(shape, (1, 0, 0, 1, -(len(seq) - 1) * adv, 0)) for shape in shapes])
+        path = union([transformed(s, shift) for s in ligature_shapes(g, m, seq)])
         set_glyph(font, liga, lambda pen, path=path: path.draw(pen), adv)
         set_glyph(font, spacer, lambda pen: None, adv)
 
@@ -425,18 +625,19 @@ def ligatures(g):
         # Not inside a longer run of the same characters ("====", "---", "///").
         fea.append(f"  ignore sub {first} {first}' {rest};")
         fea.append(f"  ignore sub {first}' {rest} {gnames[-1]};")
-        if seq == "|>":
-            fea.append("  ignore sub bar bar' greater;")
+        if "|" in seq:
+            fea.append(f"  ignore sub @htop {first}' {rest};")
+            fea.append(f"  ignore sub {first}' {rest} @htop;")
         for i, name in enumerate(gnames):
             back = " ".join([spacer] * i)
             ahead = " ".join(gnames[i + 1:])
             fea.append(f"  sub {back} {name}' {ahead} by {spacer if i < len(gnames) - 1 else liga};")
         fea.append(f"}} liga{k};")
     fea.append("feature calt {")
-    fea += [f"  lookup liga{k};" for k in range(len(LIGATURES))]
+    fea += [f"  lookup liga{k};" for k in range(len(seqs))]
     fea.append("} calt;")
     addOpenTypeFeaturesFromString(font, "\n".join(fea), tables=["GSUB"])
-    return len(LIGATURES)
+    return len(seqs)
 
 
 # --- font ------------------------------------------------------------------------------
