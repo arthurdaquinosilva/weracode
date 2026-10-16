@@ -17,7 +17,7 @@ Vera's own outlines; no glyphs are taken from other fonts.
 | `.` `,` `:` `;` | Dots 25% larger |
 | `,` `;` | Square dot with a straight tail slanting down to the left |
 | `=` | Bars spaced further apart, on whole pixels at 12px (sharp on non-Retina screens) |
-| `*` | 15% larger, lowered toward mid-height |
+| `*` | 15% larger, centred on the `+` bar like Menlo's |
 | `{` `}` | Same height as `( )` and `[ ]` |
 | Line height | ~8% taller; box-drawing, block and Powerline glyphs stretched to fill the cell |
 | Oblique styles | Italic flag set in `head.macStyle`, so macOS groups them with the family |
@@ -26,8 +26,7 @@ All Nerd Font icons are unchanged.
 
 ## Ligatures
 
-143 ligatures following [MonoLisa](https://www.monolisa.dev/)'s set, drawn from Vera's own
-shapes and measurements (no outlines are taken from MonoLisa):
+143 coding ligatures, drawn from Vera's own shapes and measurements:
 
 | Kind | Ligatures |
 |---|---|
@@ -43,8 +42,7 @@ shapes and measurements (no outlines are taken from MonoLisa):
 - `===` and `!==` use three bars (`TRIPLE_EQUAL = "double"` in `build.py` draws one long
   `=` instead); `EQUAL_RUN = 4` joins runs of `=` into one double line.
 - In `:=`, `<:` and similar the colon is raised to line up with `=`, `<` and `>`.
-- All of them are in the `calt` feature (MonoLisa keeps its symbol ligatures in the optional
-  `dlig`, which terminals don't enable): on by default in VS Code
+- All of them are in the `calt` feature, so they are on by default in VS Code
   (`"editor.fontLigatures": true`), JetBrains IDEs, Kitty, WezTerm and Ghostty; iTerm2 needs
   *Use ligatures* enabled in the profile's Text settings. Terminals without ligature support
   show the plain characters.

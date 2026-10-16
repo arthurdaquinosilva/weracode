@@ -11,7 +11,7 @@ For every style and Nerd Font variant in source/ (output goes to fonts/):
   * underscore rebuilt as a bar that overhangs its cell, so "__" joins into one line
   * taller line height (S/M/L presets), with box-drawing, block and Powerline glyphs
     stretched to keep filling the cell
-  * 143 coding ligatures following MonoLisa's set (→ ⇒ ↣ ⩽ ≠ ⊨ ≃ ◇ ▷ ...), same width
+  * 143 coding ligatures (→ ⇒ ↣ ⩽ ≠ ⊨ ≃ ◇ ▷ ...), same width
     as the characters they replace
   * italic flag fixed in head.macStyle for the Obliques
   * family renamed (the Bitstream Vera license requires modified versions to be renamed)
@@ -55,7 +55,7 @@ SQUARE_COMMA = (0x2C, 0x3B)  # glyphs whose lower part becomes a square dot with
 # Tail sizes relative to the square dot's width (W) and height (H):
 COMMA_TAIL = dict(top=0.66, bottom=0.66, shift=0.60, depth=1.13, bend=0)
 ASTERISK_SCALE = 1.15
-ASTERISK_CENTER_Y = 920   # Vera's sits at ~1053, near the cap height
+ASTERISK_CENTER_Y = None  # None: centred on the "+" bar, like Menlo's (Vera's sits at ~1053)
 SLASH_WEIGHT = 0.85       # zero slash thickness, relative to the "|" stem
 UNDERSCORE_OVERHANG = 20  # units past each side of the cell
 
@@ -266,8 +266,9 @@ def asterisk(g):
     rec = g.get(0x2A)
     x0, y0, x1, y1 = bounds(rec)
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    centre_y = plus_bar_center(g) if ASTERISK_CENTER_Y is None else ASTERISK_CENTER_Y
     g.put(0x2A, transformed(rec, scale_about(ASTERISK_SCALE, ASTERISK_SCALE, cx, cy,
-                                             g.advance(0x2A) / 2 - cx, ASTERISK_CENTER_Y - cy)))
+                                             g.advance(0x2A) / 2 - cx, centre_y - cy)))
 
 
 def braces(g):
@@ -306,7 +307,7 @@ def stretch_cells(font, asc, desc):
 
 # --- ligatures -------------------------------------------------------------------------
 #
-# Coding ligatures after MonoLisa's set: arrows, comparisons and a few operators become
+# Coding ligatures: arrows, comparisons and a few operators become
 # symbols (→ ⇒ ↣ ⩽ ≠ ⊨ ≃ ◇ ▷ ...), the rest keep their characters with tighter spacing and
 # aligned heights. Every ligature keeps the width of the characters it replaces: the last
 # character becomes the ligature glyph, drawn leftwards over the previous cells, and the
@@ -338,7 +339,7 @@ LIGATURES = {
                       "&> &>> >&- <&- &^ &^= </ /> </> ~@"),
 }
 EQUAL_RUN = None          # join runs of this many "=" or more into one double line
-                          # (MonoLisa leaves "====" plain: None)
+                          # (None: "====" stays plain)
 LIGATURE_TIGHTEN = 0.5    # in "tight" ligatures gaps shrink to this fraction,
 LIGATURE_MIN_GAP = 0.8    # but not below this fraction of the "|" stem
 # "triple" === as three light, airy bars (proportions after JetBrains Mono's):
