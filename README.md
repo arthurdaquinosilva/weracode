@@ -4,6 +4,8 @@ A customised [Bitstream Vera Sans Mono](https://www.gnome.org/fonts/), built fro
 Nerd Fonts v3.4.0 patched version (*BitstromWera Nerd Font*). Every change is derived from
 Vera's own outlines; no glyphs are taken from other fonts.
 
+![WeraCode Nerd Font: code sample, ligatures and details](images/showcase.png)
+
 ## Changes from Vera
 
 | Glyph | Change |
@@ -69,6 +71,9 @@ python3 build.py --family "Name" # different family name
 
 Sizes and positions are constants at the top of `build.py` (`DOT_SCALE`, `EQUAL_SPACING`,
 `COMMA_TAIL`, `PIXEL_SNAP`, ...). `source/` holds the unmodified Nerd Font files the build reads.
+
+`python3 showcase.py` redraws `images/showcase.png` from the built fonts (needs Pillow with
+libraqm, for ligature shaping).
 
 ## License
 
