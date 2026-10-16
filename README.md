@@ -26,29 +26,28 @@ All Nerd Font icons are unchanged.
 
 ## Ligatures
 
-77 ligatures in the style of JetBrains Mono, drawn from Vera's own measurements:
+143 ligatures following [MonoLisa](https://www.monolisa.dev/)'s set, drawn from Vera's own
+shapes and measurements (no outlines are taken from MonoLisa):
 
 | Kind | Ligatures |
 |---|---|
-| Arrows → ⇒ ↦ | `->` `-->` `<-` `<--` `<->` `<-->` `\|->` `=>` `==>` `<==` `<=>` `<==>` `\|=>` |
-| Wavy arrows | `~>` `~~>` `<~` `<~~` `<~>` `~~` |
-| Symbols | `<=` ≤ · `>=` ≥ · `!=` ≠ · `!==` · `==` · `===` ≡ · `<>` ◇ · `\|>` ▷ · `<\|` ◁ · `<\|>` |
-| Spacing / alignment | `::` `:::` `:=` `=:` `::=` `<:` `:<` `:>` `>:` `..` `...` `..<` `..=` `?.` `??` `?:` `?=` `!!` `;;` `&&` `++` `+++` `//` `///` `/*` `*/` `/**` `<<` `>>` `<<<` `>>>` `<<=` `>>=` `<*` `<*>` `*>` `<$` `<$>` `$>` `<+` `<+>` `+>` `</` `/>` `</>` `{{` `}}` `<!--` |
+| Arrows → ⇒ ↦ ↣ | `->` `-->` `--->` `<-` `<--` `<->` `\|->` `->>` `-<<` `>->` `>>-` `<-<` `<<-` `-<` `>-` `=>` `==>` `=>>` `=<<` `>=>` `>>=` `>>>=` `<==` `<=>` `<==>` `<=<` `<<=` `<!--` `<!---` |
+| Waves | `~>` `<~` `~~` `~~>` `<~~` `<~>` `-~` `~-` `~~~~` |
+| Symbols | `<=` ⩽ · `>=` ⩾ · `!=` ≠ · `!==` · `=/=` · `==` · `===` · `<>` ◇ · `\|=` ⊨ · `\|\|=` · `~=` ≃ · `\|>` ▷ · `<\|` ◁ · `<\|>` · `\|\|>` · `<\|\|` · `\|\|\|>` · `<\|\|\|` |
+| Spacing / alignment | `--` `---` `''` `""` `..` `...` `..<` `..=` `.?` `.=` `{\|` `[\|` `\|}` `\|]` `::` `::=` `:=` `:>` `:<` `>:` `<:` `;;` `!!` `!!.` `!!!` `?.` `?:` `??` `?=` `**` `***` `*>` `*/` `/*` `/**` `//` `///` `/=` `/==` `-=` `*=` `+=` `%=` `^=` `&=` `&&` `#:` `#!` `#?` `#=` `#_` `#_(` `####` `######` `########` `$(` `$>` `>&` `<&` `>(` `<(` `++` `+++` `+>` `=:=` `=!=` `>>` `>>>` `<<` `<<<` `<*` `<*>` `<$` `<$>` `<+` `<+>` `%%` `&>` `&>>` `>&-` `<&-` `&^` `&^=` `</` `/>` `</>` `~@` |
 
 - Each ligature takes exactly as many cells as the characters it replaces, so columns and
   cursor movement are unaffected.
-- `===` is one long `=` across its three cells, and `!==` a long `≠`
-  (`TRIPLE_EQUAL = "triple"` in `build.py` draws three bars instead).
+- Nothing fires inside a longer run of the same character, so htop meters
+  (`[||||||   45%]`), `----` rulers, `#####` and `====` stay plain; `||` is never a ligature.
+- `===` and `!==` use three bars (`TRIPLE_EQUAL = "double"` in `build.py` draws one long
+  `=` instead); `EQUAL_RUN = 4` joins runs of `=` into one double line.
 - In `:=`, `<:` and similar the colon is raised to line up with `=`, `<` and `>`.
-- Runs of four or more `=` join into one continuous double line, for Markdown heading
-  underlines and `====` separators.
-- Other longer runs of the same character (`---`, `////`, `::::`) are left alone.
-- Left out on purpose: `||`, `[|`, `|]`, `|-`, `-|` (htop meters and process tree), and
-  ligatures with `|` are skipped next to `|`, `[` or `]`; `#` sequences (Markdown headings);
-  `--` (command-line flags such as `--help`).
-- They are in the `calt` feature: on by default in VS Code (`"editor.fontLigatures": true`),
-  JetBrains IDEs, Kitty, WezTerm and Ghostty; iTerm2 needs *Use ligatures* enabled in the
-  profile's Text settings. Terminals without ligature support show the plain characters.
+- All of them are in the `calt` feature (MonoLisa keeps its symbol ligatures in the optional
+  `dlig`, which terminals don't enable): on by default in VS Code
+  (`"editor.fontLigatures": true`), JetBrains IDEs, Kitty, WezTerm and Ghostty; iTerm2 needs
+  *Use ligatures* enabled in the profile's Text settings. Terminals without ligature support
+  show the plain characters.
 
 ## Fonts
 
@@ -86,5 +85,5 @@ The icon glyphs were added by [Nerd Fonts](https://github.com/ryanoasis/nerd-fon
 from several icon sets, each under its own license; see the Nerd Fonts
 [license information](https://github.com/ryanoasis/nerd-fonts/blob/master/LICENSE) for details.
 
-The ligatures are styled after [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono)'s,
-but drawn from Vera's own glyphs; no outlines are taken from it.
+The ligature set follows [MonoLisa](https://www.monolisa.dev/)'s, but every ligature is drawn
+from Vera's own glyphs; no outlines are taken from it.

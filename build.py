@@ -11,7 +11,7 @@ For every style and Nerd Font variant in source/ (output goes to fonts/):
   * underscore rebuilt as a bar that overhangs its cell, so "__" joins into one line
   * taller line height (S/M/L presets), with box-drawing, block and Powerline glyphs
     stretched to keep filling the cell
-  * 77 coding ligatures in the style of JetBrains Mono (→ ⇒ ≤ ≠ ≡ ◇ ▷ ...), same width
+  * 143 coding ligatures following MonoLisa's set (→ ⇒ ↣ ⩽ ≠ ⊨ ≃ ◇ ▷ ...), same width
     as the characters they replace
   * italic flag fixed in head.macStyle for the Obliques
   * family renamed (the Bitstream Vera license requires modified versions to be renamed)
@@ -306,47 +306,45 @@ def stretch_cells(font, asc, desc):
 
 # --- ligatures -------------------------------------------------------------------------
 #
-# Coding ligatures in the style of JetBrains Mono: arrows, comparisons and a few operators
-# become symbols (→ ⇒ ≤ ≠ ◇ ▷ ...), the rest keep their characters with tighter spacing
-# and aligned heights. Every ligature keeps the width of the characters it replaces: the
-# last character becomes the ligature glyph, drawn leftwards over the previous cells, and
-# the others become empty spacers. The rules go in "calt" (contextual alternates), which
-# editors and ligature-aware terminals enable by default.
-#
-# Left out on purpose: anything with "||", "[|", "|]", "|-" or "-|" (htop meters and its
-# ASCII process tree), and ligatures containing "|" are skipped next to "|", "[" or "]";
-# "#" sequences (Markdown headings); "--" (command-line flags).
+# Coding ligatures after MonoLisa's set: arrows, comparisons and a few operators become
+# symbols (→ ⇒ ↣ ⩽ ≠ ⊨ ≃ ◇ ▷ ...), the rest keep their characters with tighter spacing and
+# aligned heights. Every ligature keeps the width of the characters it replaces: the last
+# character becomes the ligature glyph, drawn leftwards over the previous cells, and the
+# others become empty spacers. Nothing fires inside a longer run of the same character, so
+# htop meters ("[||||  ]"), "----" rulers and "#####" stay plain. All rules go in "calt"
+# (contextual alternates), which editors and ligature-aware terminals enable by default.
+
+def _kinds(kind, seqs):
+    return {seq: kind for seq in seqs.split()}
+
 
 LIGATURES = {
-    # arrows: a shaft of "-", "=" or "~" with optional heads ("<", ">") and tail ("|")
-    "->": "arrow", "-->": "arrow", "<-": "arrow", "<--": "arrow", "<->": "arrow",
-    "<-->": "arrow", "|->": "arrow", "=>": "arrow", "==>": "arrow", "<==": "arrow",
-    "<=>": "arrow", "<==>": "arrow", "|=>": "arrow", "~>": "arrow", "~~>": "arrow",
-    "<~": "arrow", "<~~": "arrow", "<~>": "arrow", "~~": "arrow",
-    # symbols
-    "<=": "less_equal", ">=": "greater_equal", "!=": "not_equal", "!==": "not_equal",
-    "==": "bars", "===": "bars", "<>": "diamond", "|>": "triangle", "<|": "triangle",
-    "<|>": "triangle",
+    # arrows: a shaft of "-", "=" or "~" with heads, tails ("<", ">"), "|" and "!" at its ends
+    **_kinds("arrow", "-> --> ---> <- <-- <!-- <!--- |-> ->> -<< >-> >>- <-> <-< <<- -< >- "
+                      "=> ==> =>> =<< >=> >>= >>>= <== <=> <==> <=< <<= "
+                      "~> <~ ~~ ~~> <~~ <~> -~ ~- ~~~~"),
+    **_kinds("less_equal", "<= >="),
+    **_kinds("not_equal", "!= !== =/="),
+    **_kinds("bars", "== ==="),
+    **_kinds("diamond", "<>"),
+    **_kinds("triangle", "|> <| <|> ||> <|| |||> <|||"),
+    **_kinds("turnstile", "|= ||="),
+    **_kinds("approx", "~="),
     # characters kept, spacing and heights adjusted
-    "::": "tight", ":::": "tight", ":=": "tight", "=:": "tight", "::=": "tight",
-    "<:": "tight", ":<": "tight", ":>": "tight", ">:": "tight", "..": "tight",
-    "...": "tight", "..<": "tight", "..=": "tight", "?.": "tight", "??": "tight",
-    "?:": "tight", "?=": "tight", "!!": "tight", ";;": "tight", "&&": "tight",
-    "++": "tight", "+++": "tight", "//": "tight", "///": "tight", "/*": "tight",
-    "*/": "tight", "/**": "tight", "<<": "tight", ">>": "tight", "<<<": "tight",
-    ">>>": "tight", "<<=": "tight", ">>=": "tight", "<*": "tight", "<*>": "tight",
-    "*>": "tight", "<$": "tight", "<$>": "tight", "$>": "tight", "<+": "tight",
-    "<+>": "tight", "+>": "tight", "</": "tight", "/>": "tight", "</>": "tight",
-    "{{": "tight", "}}": "tight", "<!--": "tight",
+    **_kinds("tight", "-- --- '' \"\" .. ... ..< ..= .? .= {| [| |} |] :: ::= := :> :< >: <: "
+                      ";; !! !!. !!! ?. ?: ?? ?= ** *** *> */ /* /** // /// /= /== "
+                      "-= *= += %= ^= &= && #: #! #? #= #_ #_( #### ###### ######## $( $> >& <& >( <( "
+                      "++ +++ +> =:= =!= >> >>> << <<< <* <*> <$ <$> <+ <+> %% "
+                      "&> &>> >&- <&- &^ &^= </ /> </> ~@"),
 }
-EQUAL_RUN = 4             # runs of this many "=" or more join into one double line
-                          # (Markdown heading underlines, ==== separators)
+EQUAL_RUN = None          # join runs of this many "=" or more into one double line
+                          # (MonoLisa leaves "====" plain: None)
 LIGATURE_TIGHTEN = 0.5    # in "tight" ligatures gaps shrink to this fraction,
 LIGATURE_MIN_GAP = 0.8    # but not below this fraction of the "|" stem
 # "triple" === as three light, airy bars (proportions after JetBrains Mono's):
 TRIPLE_BAR_WEIGHT = 0.75  # bar thickness, relative to an "=" bar
 TRIPLE_BAR_GAP = 2.6      # gap between bars, relative to their thickness
-TRIPLE_EQUAL = "double"   # === and !==: "double" (one long "=") or "triple" (three bars)
+TRIPLE_EQUAL = "triple"   # === and !==: "triple" (three bars) or "double" (one long "=")
 # Sizes relative to half the height of ">" (h) and the cell width (w), measured from
 # JetBrains Mono's ligatures (centre-line sizes; the stroke adds a little outside):
 ARROW_HEAD = (1.0, 1.0)           # → arrowhead: half-height × h, depth × h
@@ -358,6 +356,9 @@ LESS_EQUAL = (0.95, 1.0, 0.85)    # ≤ ≥: chevron half-height × h, width × 
 DIAMOND = (1.0, 0.72)             # ◇: half-height × h, half-width × w
 TRIANGLE = (1.45, 1.05)           # ▷: half-height × h, width × w
 NOT_EQUAL = (1.25, 0.35)          # ≠ slash: half-height × h, horizontal run per unit height
+CHEVRON_STEP = 0.6                # ->> >>= : spacing of repeated heads/tails, × their depth
+TURNSTILE = 1.6                   # ⊨ |= : bar half-height × h
+APPROX_WAVE = 0.6                 # ≃ ~= : wave amplitude, relative to the ~~ waves
 WAVE_AMPLITUDE = 0.25             # ~~ waves: amplitude × h
 
 
@@ -372,6 +373,8 @@ class Measures:
         bars = sorted((bounds(c) for c in contours(g.raw(ord("=")))), key=lambda b: b[1])
         self.bar = bars[0][3] - bars[0][1]  # "=" bar thickness: double arrows, ≤ ≠ ◇ ▷
         self.bar_gap = bars[1][1] - bars[0][3]
+        self.eq = [(b[1], b[3]) for b in bars]  # the "=" bars' y ranges, bottom first
+        self.eq_center = (bars[0][1] + bars[1][3]) / 2
         self.margin = bars[0][0]  # side bearing of "=": where arrows start and end
         _, y0, _, y1 = bounds(g.raw(ord(">")))
         self.h = (y1 - y0) / 2
@@ -502,54 +505,94 @@ def triple_bars(g, first, last):
         thickness = px * max(1, round(thickness / px))
         gap = px * max(1, round(gap / px - 0.25))  # lean tighter, so Bold gets Regular's gap
         bottom = (y0 + y1) / 2 - 1.5 * thickness - gap
-        top = px * round(bottom / px) + 3 * thickness + 2 * gap
+        top = px * math.floor(bottom / px + 0.5) + 3 * thickness + 2 * gap
     left, right = x0 + first * adv, x1 + last * adv
     return [rect(left, top - k * (thickness + gap) - thickness, right, top - k * (thickness + gap))
             for k in range(3)]
 
 
-def wave(m, x0, x1):
-    """A "~" line from x0 to x1, starting and ending on the axis."""
-    period = m.adv
-    halves = max(1, round(2 * (x1 - x0) / period))
-    steps = halves * 12
-    pts = [(x0 + (x1 - x0) * i / steps,
-            m.axis + m.wave * math.sin(math.pi * halves * i / steps)) for i in range(steps + 1)]
-    return stroke(pts, m.thin)
+def shaft_points(m, chars, x0, x1, cy, amplitude):
+    """Centre line from x0 to x1 for shaft characters: straight for "-" cells, a sine for
+    runs of "~" cells, starting and ending on cy so the pieces join."""
+    pts, i = [], 0
+    while i < len(chars):
+        j = i
+        while j + 1 < len(chars) and chars[j + 1] == chars[i]:
+            j += 1
+        a = x0 + (x1 - x0) * i / len(chars)
+        b = x0 + (x1 - x0) * (j + 1) / len(chars)
+        if chars[i] == "~":
+            halves = max(1, round(2 * (b - a) / m.adv))
+            steps = halves * 12
+            pts += [(a + (b - a) * k / steps, cy + amplitude * math.sin(math.pi * halves * k / steps))
+                    for k in range(steps + 1)]
+        else:
+            pts += [(a, cy), (b, cy)]
+        i = j + 1
+    return [p for k, p in enumerate(pts) if k == 0 or p != pts[k - 1]]
+
+
+def arrow_end(g, m, marks, edge, side, cy, hh, depth, width, style):
+    """The heads ("<" ">" pointing out), tails (pointing in), "|" and "!" at one end of an
+    arrow, outermost first. Returns the shapes, where the shaft may start, and the hull of
+    an innermost head (the shaft runs on inside it, up to its point)."""
+    inward = -side
+    shapes, x, back, stop, hull = [], edge, edge, edge, None
+    for c in (marks if side < 0 else marks[::-1]):
+        if c in "<>":
+            d = 1 if c == ">" else -1
+            far = x + inward * depth
+            if d == side:  # head
+                shapes.append(arrowhead((x, cy), d, hh, depth, width, style))
+                hull, stop = polygon(convex_hull(points_of(shapes[-1]))), far
+            else:          # tail: the shaft starts at its point
+                shapes.append(chevron((far, cy), d, hh, depth, width))
+                hull, stop = None, far - inward * width
+            x += inward * depth * CHEVRON_STEP
+            back = far
+        elif c == "|":
+            shapes.append(rect(min(x, x + inward * width), cy - hh, max(x, x + inward * width), cy + hh))
+            hull, stop = None, x + inward * width / 2
+            x = back = x + inward * width
+        elif c == "!":
+            gap = stem_width(g) * 1.5
+            mark = g.raw(ord("!"))
+            bx0, _, bx1, _ = bounds(mark)
+            left = back + gap if inward > 0 else back - gap - (bx1 - bx0)
+            shapes.append(transformed(mark, (1, 0, 0, 1, left - bx0, 0)))
+            back = left + (bx1 - bx0) if inward > 0 else left
+            hull, stop = None, back + inward * gap
+            x = back
+    return shapes, stop, hull
 
 
 def arrow(g, m, seq):
     n = len(seq)
-    left, right = m.margin, n * m.adv - m.margin
-    shaft = next(c for c in seq if c in "-=~")
-    width = m.bar if shaft == "=" else m.thin
-    hh, depth = DOUBLE_ARROW_HEAD if shaft == "=" else ARROW_HEAD
+    i = 0
+    while seq[i] in "<>|!":
+        i += 1
+    j = i
+    while j < n and seq[j] in "-=~":
+        j += 1
+    lead, chars, trail = seq[:i], seq[i:j], seq[j:]
+    double = "=" in chars
+    width = m.bar if double else m.thin
+    hh, depth = DOUBLE_ARROW_HEAD if double else ARROW_HEAD
     hh, depth = hh * m.h, depth * m.h
-    shapes, hulls = [], []
-    open_x = [-10 ** 4, 10 ** 4]  # shafts may run freely between the heads' open sides
-    style = DOUBLE_ARROW_STYLE if shaft == "=" else ARROW_STYLE
-    if seq[0] == "<":
-        shapes.append(arrowhead((left, m.axis), -1, hh, depth, width, style))
-        open_x[0] = left + depth
-    if seq[-1] == ">":
-        shapes.append(arrowhead((right, m.axis), 1, hh, depth, width, style))
-        open_x[1] = right - depth
-    hulls = [polygon(convex_hull(points_of(s))) for s in shapes]
-    start = left
-    if seq[0] == "|":  # maps-to tail: ↦ ⤇
-        shapes.append(rect(left, m.axis - hh, left + width, m.axis + hh))
-        start = left + width / 2
-    if shaft == "-":
-        lines = [rect(start, m.axis - width / 2, right, m.axis + width / 2)]
-    elif shaft == "=":
-        offset = (m.bar_gap + m.bar) / 2
-        lines = [rect(start, m.axis + dy - width / 2, right, m.axis + dy + width / 2)
-                 for dy in (-offset, offset)]
+    style = DOUBLE_ARROW_STYLE if double else ARROW_STYLE
+    cy = m.eq_center if double else m.axis
+    left, right = m.margin, n * m.adv - m.margin
+    shapes, start, lhull = arrow_end(g, m, lead, left, -1, cy, hh, depth, width, style)
+    more, end, rhull = arrow_end(g, m, trail, right, 1, cy, hh, depth, width, style)
+    shapes += more
+    if double:
+        lines = [rect(left, y0, right, y1) for y0, y1 in m.eq]
     else:
-        lines = [wave(m, start, right)]
-    region = to_path(rect(open_x[0], -10 ** 4, open_x[1], 10 ** 4))
-    for hull in hulls:
-        region = pathops.op(region, to_path(hull), pathops.PathOp.UNION)
+        lines = [stroke(shaft_points(m, chars, left, right, cy, m.wave), width)]
+    region = to_path(rect(start, -10 ** 4, end, 10 ** 4))
+    for hull in (lhull, rhull):
+        if hull:
+            region = pathops.op(region, to_path(hull), pathops.PathOp.UNION)
     return shapes + [clip(line, region) for line in lines]
 
 
@@ -570,9 +613,10 @@ def less_equal(m, seq):
 
 
 def not_equal(g, m, seq):
-    """≠ (2 cells), and a longer one for !== (3 cells, three bars if TRIPLE_EQUAL is "triple")."""
+    """≠ != (2 cells), and longer ones for =/= and !== (three bars if TRIPLE_EQUAL is "triple")."""
     n = len(seq)
-    bars = triple_bars(g, 0, 2) if n == 3 and TRIPLE_EQUAL == "triple" else joined_bars(g, "=", 0, n - 1)
+    triple = seq == "!==" and TRIPLE_EQUAL == "triple"
+    bars = triple_bars(g, 0, 2) if triple else joined_bars(g, "=", 0, n - 1)
     # the slash always sticks out past the bars, however tall === is
     top = max(bounds(bar)[3] for bar in bars)
     half = max(NOT_EQUAL[0] * m.h, top - m.axis + 0.3 * m.h)
@@ -589,16 +633,39 @@ def diamond(m):
 
 
 def triangles(m, seq):
-    """▷ |>, ◁ <|, and ◁▷ <|> sharing their upright side."""
-    hh, w = TRIANGLE[0] * m.h, TRIANGLE[1] * m.adv
-    cx = len(seq) * m.adv / 2
-    shapes = []
-    for direction in ([1] if seq == "|>" else [-1] if seq == "<|" else [-1, 1]):
-        base = cx if seq == "<|>" else cx - direction * w / 2
-        tip = base + direction * w
-        shapes.append(stroke([(base, m.axis - hh), (base, m.axis + hh), (tip, m.axis)],
-                             m.bar, closed=True))
+    """▷ |>, ◁ <|, ◁▷ <|> sharing their upright side, and ▷ ◁ after or before extra bars
+    (||> |||> <|| <|||)."""
+    n, hh, w = len(seq), TRIANGLE[0] * m.h, TRIANGLE[1] * m.adv
+
+    def triangle(base, direction):
+        return stroke([(base, m.axis - hh), (base, m.axis + hh), (base + direction * w, m.axis)],
+                      m.bar, closed=True)
+
+    if seq == "<|>":
+        return [triangle(1.5 * m.adv, d) for d in (-1, 1)]
+    direction = 1 if seq[-1] == ">" else -1
+    cx = (n - 1) * m.adv if direction > 0 else m.adv  # the triangle fills two cells
+    shapes = [triangle(cx - direction * w / 2, direction)]
+    for k in range(seq.count("|") - 1):
+        x = (k + 0.5) * m.adv if direction > 0 else (n - 0.5 - k) * m.adv
+        shapes.append(rect(x - m.bar / 2, m.axis - hh, x + m.bar / 2, m.axis + hh))
     return shapes
+
+
+def turnstile(m, seq):
+    """⊨ |= and ||=: upright bars with the "=" bars running from the last one."""
+    n, hh = len(seq), TURNSTILE * m.h
+    xs = [(k + 0.5) * m.adv for k in range(seq.count("|"))]
+    shapes = [rect(x - m.bar / 2, m.eq_center - hh, x + m.bar / 2, m.eq_center + hh) for x in xs]
+    return shapes + [rect(xs[-1], y0, n * m.adv - m.margin, y1) for y0, y1 in m.eq]
+
+
+def approx(m):
+    """≃ ~=: a wave on the upper "=" bar, the lower bar straight."""
+    (b0, b1), (t0, t1) = m.eq
+    left, right = m.margin, 2 * m.adv - m.margin
+    top = stroke(shaft_points(m, "~~", left, right, (t0 + t1) / 2, m.wave * APPROX_WAVE), t1 - t0)
+    return [top, rect(left, b0, right, b1)]
 
 
 def tight_parts(g, m, seq):
@@ -613,7 +680,7 @@ def tight_parts(g, m, seq):
             parts.append(joined_bars(g, seq[i], i, j))  # the "--" of "<!--"
         else:
             shape = placed(g, seq[i], i)
-            if (seq[i] == ":" and set(seq) & set("=<>")) or (seq[i] == "*" and set(seq) & set("<>")):
+            if seq[i] in ":*" and set(seq) & set("=<>"):
                 _, y0, _, y1 = bounds(shape)
                 shape = transformed(shape, (1, 0, 0, 1, 0, m.axis - (y0 + y1) / 2))
             parts.append([shape])
@@ -685,6 +752,10 @@ def ligature_shapes(g, m, seq):
         return diamond(m)
     if kind == "triangle":
         return triangles(m, seq)
+    if kind == "turnstile":
+        return turnstile(m, seq)
+    if kind == "approx":
+        return approx(m)
     return tighten(g, tight_parts(g, m, seq))
 
 
@@ -695,8 +766,7 @@ def ligatures(g):
     font.setGlyphOrder(font.getGlyphOrder() + [f"{'_'.join(n)}.{s}" for n in names
                                                for s in ("liga", "spacer")])
 
-    fea = ["languagesystem DFLT dflt;", "languagesystem latn dflt;",
-           "@htop = [bar bracketleft bracketright];"]
+    fea = ["languagesystem DFLT dflt;", "languagesystem latn dflt;"]
     for k, (seq, gnames) in enumerate(zip(seqs, names)):
         adv = g.advance(ord(seq[-1]))
         liga, spacer = "_".join(gnames) + ".liga", "_".join(gnames) + ".spacer"
@@ -708,20 +778,18 @@ def ligatures(g):
 
         first, rest = gnames[0], " ".join(gnames[1:])
         fea.append(f"lookup liga{k} {{")
-        # Not inside a longer run of the same characters ("====", "---", "///").
+        # Not inside a longer run of the same characters ("||||", "----", "####").
         fea.append(f"  ignore sub {first} {first}' {rest};")
         fea.append(f"  ignore sub {first}' {rest} {gnames[-1]};")
-        if "|" in seq:
-            fea.append(f"  ignore sub @htop {first}' {rest};")
-            fea.append(f"  ignore sub {first}' {rest} @htop;")
         for i, name in enumerate(gnames):
             back = " ".join([spacer] * i)
             ahead = " ".join(gnames[i + 1:])
             fea.append(f"  sub {back} {name}' {ahead} by {spacer if i < len(gnames) - 1 else liga};")
         fea.append(f"}} liga{k};")
-    fea += equal_run(g)
+    fea += equal_run(g) if EQUAL_RUN else []
     fea.append("feature calt {")
-    fea += ["  lookup equal_run_start;", "  lookup equal_run_rest;"]  # before the ligatures
+    if EQUAL_RUN:
+        fea += ["  lookup equal_run_start;", "  lookup equal_run_rest;"]  # before the ligatures
     fea += [f"  lookup liga{k};" for k in range(len(seqs))]
     fea.append("} calt;")
     addOpenTypeFeaturesFromString(font, "\n".join(fea), tables=["GSUB"])

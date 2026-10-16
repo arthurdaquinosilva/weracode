@@ -54,8 +54,8 @@ CODE = [
     "}",
 ]
 
-LIGS = ["->", "=>", "==>", "<=>", "<=", ">=", "!=", "==", "===", "!==", "|>", "<|", "::",
-        ":=", "..", "...", "?.", "??", "&&", "++", "//", "/*", "<<", ">>", "</>", "~>"]
+LIGS = ["->", "=>", "->>", ">->", "<=>", ">>=", "<!--", "~~>", "<=", ">=", "!=", "!==", "=/=",
+        "==", "===", "|=", "~=", "<>", "|>", "<|>", "||>", "::", ":=", "??", "+=", "</>"]
 
 W = 900
 img = Image.new("RGB", (W * X, 10), C["bg"])  # height fixed below
@@ -85,7 +85,7 @@ def layout(H):
     text(x0, y, "Bitstream Vera Sans Mono, refined for code: slashed zero, bigger punctuation,",
          size=13, color="muted")
     y += 20
-    text(x0, y, "77 grid-aligned ligatures and every Nerd Font icon.", size=13, color="muted")
+    text(x0, y, "143 grid-aligned ligatures and every Nerd Font icon.", size=13, color="muted")
     y += 40
 
     # powerline prompt
